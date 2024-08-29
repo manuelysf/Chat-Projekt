@@ -1,9 +1,9 @@
 {
   "name": "kms2_02_le_01_01_06_chat",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "devStart": "concurrently \"nodemon server.js\" \"nodemon index.js\""
+    "devStart": "nodemon server.js"
   },
   "keywords": [],
   "author": "",
