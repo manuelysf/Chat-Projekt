@@ -1,29 +1,46 @@
-const LocalStrategy = require('passport-local').Strategy
-const bcrypt = require('bcrypt')
+const LocalStrategy = require('passport-local').Strategy;
+const bcrypt = require('bcrypt');
+const { open } = require('sqlite');
+const sqlite3 = require('sqlite3');
 
-function initialize(passport, getUserByEmail, getUserById) {
+// Open the database connection
+const dbPromise = open({
+  filename: 'chat.db',
+  driver: sqlite3.Database
+});
+
+function initialize(passport) {
   const authenticateUser = async (email, password, done) => {
-    const user = getUserByEmail(email)
-    if (user == null) {
-      return done(null, false, { message: 'Kein Benutzer mit dieser Email' })
-    }
-
+    const db = await dbPromise;
     try {
-      if (await bcrypt.compare(password, user.password)) {
-        return done(null, user)
-      } else {
-        return done(null, false, { message: 'Falsches Passwort' })
-      }
-    } catch (e) {
-      return done(e)
-    }
-  }
+      const user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
 
-  passport.use(new LocalStrategy({ usernameField: 'email' }, authenticateUser))
-  passport.serializeUser((user, done) => done(null, user.id))
-  passport.deserializeUser((id, done) => {
-    return done(null, getUserById(id))
-  })
+      if (!user) {
+        return done(null, false, { message: 'No user with that email' });
+      }
+
+      const passwordMatches = await bcrypt.compare(password, user.password);
+      if (passwordMatches) {
+        return done(null, user);
+      } else {
+        return done(null, false, { message: 'Password incorrect' });
+      }
+    } catch (error) {
+      return done(error);
+    }
+  };
+
+  passport.use(new LocalStrategy({ usernameField: 'email' }, authenticateUser));
+  passport.serializeUser((user, done) => done(null, user.id));
+  passport.deserializeUser(async (id, done) => {
+    const db = await dbPromise;
+    try {
+      const user = await db.get('SELECT * FROM users WHERE id = ?', [id]);
+      return done(null, user);
+    } catch (error) {
+      return done(error);
+    }
+  });
 }
 
-module.exports = initialize
+module.exports = initialize;
